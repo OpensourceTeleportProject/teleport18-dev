@@ -1,3 +1,5 @@
+GOFLAGS ?= -buildvcs=false
+
 # Make targets:
 #
 #  all    : builds all binaries in development mode

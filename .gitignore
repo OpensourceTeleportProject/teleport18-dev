@@ -24,6 +24,7 @@ default.etcd
 # Compiled binaries, Object files, Static and Dynamic libs (Shared Objects)
 out
 build
+build_local
 build.log
 !/web/packages/build
 *.o
