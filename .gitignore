@@ -25,6 +25,7 @@ default.etcd
 out
 build
 build_local
+build_docker
 build.log
 !/web/packages/build
 *.o
