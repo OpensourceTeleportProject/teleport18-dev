@@ -49,6 +49,8 @@ import { DiscoverEventResource } from 'teleport/services/userEvent';
 import { DiscoverGuideId } from 'teleport/services/userPreferences/discoverPreference';
 import useStickyClusterId from 'teleport/useStickyClusterId';
 import useTeleport from 'teleport/useTeleport';
+import { InitScriptDialog } from 'teleport/components/InitScriptDialog';
+import { getXCSRFToken, getAccessToken } from 'teleport/services/api';
 
 type Props = {
   resource: UnifiedResource;
@@ -75,6 +77,9 @@ export const ResourceActionButton = ({ resource }: Props) => {
 
 const NodeConnect = ({ node }: { node: Node }) => {
   const { clusterId } = useStickyClusterId();
+  const ctx = useTeleport();
+  const [showInitScriptDialog, setShowInitScriptDialog] = useState(false);
+
   const startSshSession = (login: string, serverId: string) => {
     const url = cfg.getSshConnectRoute({
       clusterId,
@@ -94,23 +99,78 @@ const NodeConnect = ({ node }: { node: Node }) => {
     return startSshSession(login, node.id);
   };
 
+  const handleEditInitScript = () => {
+    setShowInitScriptDialog(true);
+  };
+
+  const handleSaveInitScript = async (script: string) => {
+    try {
+      console.log('=== CLAUDE: handleSave START ===');
+      console.log('Script:', script);
+      console.log('Node ID:', node.id);
+      console.log('Cluster ID:', clusterId);
+      
+      const csrfToken = getXCSRFToken();
+      const accessToken = getAccessToken();
+      console.log('CSRF Token:', csrfToken);
+      console.log('Access Token:', accessToken ? 'present' : 'missing');
+      
+      const requestBody = { 
+        serverId: node.id,
+        initScript: script,
+        isUpdate: true
+      };
+      console.log('Request body:', requestBody);
+      
+      const url = `/webapi/sites/${clusterId}/nodes`;
+      console.log('Request URL:', url);
+      
+      console.log('=== SENDING POST REQUEST ===');
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      console.log('=== RESPONSE RECEIVED ===');
+      console.log('Status:', response.status);
+      console.log('OK:', response.ok);
+
+      if (!response.ok) {
+        throw new Error(`Failed to save init script: ${response.statusText}`);
+      }
+
+      setShowInitScriptDialog(false);
+    } catch (error) {
+      console.error('Error saving init script:', error);
+    }
+  };
+
   return (
-    <MenuLogin
-      width="123px"
-      inputType={MenuInputType.FILTER}
-      textTransform={'none'}
-      alignButtonWidthToMenu
-      getLoginItems={handleOnOpen}
-      onSelect={handleOnSelect}
-      transformOrigin={{
-        vertical: 'top',
-        horizontal: 'right',
-      }}
-      anchorOrigin={{
-        vertical: 'bottom',
-        horizontal: 'right',
-      }}
-    />
+    <>
+      <MenuLoginWithActionMenu
+        width="123px"
+        inputType={MenuInputType.FILTER}
+        buttonText="Connect"
+        getLoginItems={handleOnOpen}
+        onSelect={handleOnSelect}
+      >
+        <MenuItem onClick={handleEditInitScript}>
+          Edit Init Script
+        </MenuItem>
+      </MenuLoginWithActionMenu>
+      <InitScriptDialog
+        open={showInitScriptDialog}
+        onClose={() => setShowInitScriptDialog(false)}
+        onSave={handleSaveInitScript}
+        initialScript={node.initScript || ''}
+        serverName={node.hostname}
+      />
+    </>
   );
 };
 

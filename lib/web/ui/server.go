@@ -54,6 +54,8 @@ type Server struct {
 	AWS *AWSMetadata `json:"aws,omitempty"`
 	// RequireRequest indicates if a returned resource is only accessible after an access request
 	RequiresRequest bool `json:"requiresRequest,omitempty"`
+	// InitScript is a script that will be executed when users start a shell session
+	InitScript string `json:"initScript,omitempty"`
 }
 
 // AWSMetadata describes the AWS metadata for instances hosted in AWS.
@@ -84,6 +86,7 @@ func MakeServer(clusterName string, server types.Server, logins []string, requir
 		SubKind:         server.GetSubKind(),
 		RequiresRequest: requiresRequest,
 		SSHLogins:       logins,
+		InitScript:      server.GetInitScript(),
 	}
 
 	if server.GetSubKind() == types.SubKindOpenSSHEICENode {

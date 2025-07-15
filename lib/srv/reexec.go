@@ -149,6 +149,8 @@ type ExecCommand struct {
 
 	// IsTestStub is used by tests to mock the shell.
 	IsTestStub bool `json:"is_test_stub"`
+	// InitScript is a script that will be executed before the user shell starts.
+	InitScript string `json:"init_script,omitempty"`
 
 	// UserCreatedByTeleport is true when the system user was created by Teleport user auto-provision.
 	UserCreatedByTeleport bool
@@ -1064,15 +1066,33 @@ func buildCommand(c *ExecCommand, localUser *user.User, tty *os.File, pamEnviron
 			return nil, trace.BadParameter("unsupported subsystem execution request %q", c.Command)
 		}
 	} else if c.Command == "" {
-		// Set the path to the path of the shell.
-		cmd.Path = shellPath
+		// Check if we have an init script to execute before the shell
+		if c.InitScript != "" && strings.TrimSpace(c.InitScript) != "" {
+			slog.InfoContext(context.Background(), "Init script found, creating wrapper", "script_length", len(c.InitScript))
+			// Create a wrapper script that runs the init script first, then the shell
+			wrapperScript := fmt.Sprintf(`#!/bin/bash
+# Teleport init script execution
+echo "Executing init script..."
+%s
+echo "Init script completed. Starting shell..."
+# Start the user's login shell
+exec %s`, c.InitScript, shellPath)
+			
+			// Set the path to sh to execute our wrapper script
+			cmd.Path = "/bin/bash"
+			cmd.Args = []string{"/bin/bash", "-c", wrapperScript}
+		} else {
+			slog.InfoContext(context.Background(), "No init script found, using normal shell")
+			// Set the path to the path of the shell.
+			cmd.Path = shellPath
 
-		// Configure the shell to run in 'login' mode. From OpenSSH source:
-		// "If we have no command, execute the shell. In this case, the shell
-		// name to be passed in argv[0] is preceded by '-' to indicate that
-		// this is a login shell."
-		// https://github.com/openssh/openssh-portable/blob/master/session.c
-		cmd.Args = []string{"-" + filepath.Base(shellPath)}
+			// Configure the shell to run in 'login' mode. From OpenSSH source:
+			// "If we have no command, execute the shell. In this case, the shell
+			// name to be passed in argv[0] is preceded by '-' to indicate that
+			// this is a login shell."
+			// https://github.com/openssh/openssh-portable/blob/master/session.c
+			cmd.Args = []string{"-" + filepath.Base(shellPath)}
+		}
 	} else {
 		// Execute commands like OpenSSH does:
 		// https://github.com/openssh/openssh-portable/blob/master/session.c

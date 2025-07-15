@@ -31,6 +31,7 @@ export default function makeNode(json: any): Node {
     sshLogins,
     aws,
     requiresRequest,
+    initScript,
   } = json;
 
   return {
@@ -45,6 +46,7 @@ export default function makeNode(json: any): Node {
     requiresRequest,
     sshLogins: sshLogins ?? [],
     awsMetadata: aws ? makeAwsMetadata(aws) : undefined,
+    initScript,
   };
 }
 

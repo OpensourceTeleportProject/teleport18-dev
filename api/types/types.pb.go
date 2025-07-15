@@ -3295,10 +3295,13 @@ type ServerSpecV2 struct {
 	CloudMetadata *CloudMetadata `protobuf:"bytes,14,opt,name=CloudMetadata,proto3" json:"cloud_metadata,omitempty"`
 	// GitHub contains info about GitHub proxies where each server represents a
 	// GitHub organization.
-	GitHub               *GitHubServerMetadata `protobuf:"bytes,15,opt,name=git_hub,json=gitHub,proto3" json:"github,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
+	GitHub *GitHubServerMetadata `protobuf:"bytes,15,opt,name=git_hub,json=gitHub,proto3" json:"github,omitempty"`
+	// InitScript is a script that will be executed when users start a shell session.
+	// This script runs before the user shell starts.
+	InitScript           string   `protobuf:"bytes,16,opt,name=InitScript,proto3" json:"init_script,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ServerSpecV2) Reset()         { *m = ServerSpecV2{} }

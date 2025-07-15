@@ -105,6 +105,11 @@ type Server interface {
 
 	// GetGitHub returns the GitHub server spec.
 	GetGitHub() *GitHubServerMetadata
+
+	// GetInitScript returns the init script for this server.
+	GetInitScript() string
+	// SetInitScript sets the init script for this server.
+	SetInitScript(script string)
 }
 
 // NewServer creates an instance of Server.
@@ -470,6 +475,16 @@ func (s *ServerV2) IsEICE() bool {
 // GetGitHub returns the GitHub server spec.
 func (s *ServerV2) GetGitHub() *GitHubServerMetadata {
 	return s.Spec.GitHub
+}
+
+// GetInitScript returns the init script for this server.
+func (s *ServerV2) GetInitScript() string {
+	return s.Spec.InitScript
+}
+
+// SetInitScript sets the init script for this server.
+func (s *ServerV2) SetInitScript(script string) {
+	s.Spec.InitScript = script
 }
 
 // openSSHNodeCheckAndSetDefaults are common validations for OpenSSH nodes.

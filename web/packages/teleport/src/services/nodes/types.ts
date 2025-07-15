@@ -34,6 +34,7 @@ export interface Node {
   sshLogins: string[];
   awsMetadata?: AwsMetadata;
   requiresRequest?: boolean;
+  initScript?: string;
 }
 
 export interface BashCommand {

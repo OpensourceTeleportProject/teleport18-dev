@@ -926,6 +926,10 @@ message ServerSpecV2 {
   // GitHub organization.
   GitHubServerMetadata git_hub = 15 [(gogoproto.jsontag) = "github,omitempty"];
 
+  // InitScript is a script that will be executed when users start a shell session.
+  // This script runs before the user shell starts.
+  string InitScript = 16 [(gogoproto.jsontag) = "init_script,omitempty"];
+
   reserved 8;
   reserved 10;
   reserved "KubernetesClusters";

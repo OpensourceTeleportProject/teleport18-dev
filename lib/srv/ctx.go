@@ -589,6 +589,43 @@ func (c *ServerContext) GetServer() Server {
 	return c.srv
 }
 
+// GetInitScript returns the init script for this server.
+func (c *ServerContext) GetInitScript() string {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.ErrorContext(context.Background(), "Failed to get init script", "error", r)
+		}
+	}()
+	
+	if c.srv == nil {
+		slog.DebugContext(context.Background(), "No server context available for init script")
+		return ""
+	}
+	
+	server := c.srv.GetInfo()
+	if server == nil {
+		slog.DebugContext(context.Background(), "No server info available for init script")
+		return ""
+	}
+	
+	// First try to get init script from file (our new implementation)
+	serverID := server.GetName()
+	if serverID != "" {
+		scriptPath := fmt.Sprintf("/var/lib/teleport/init-scripts/%s.sh", serverID)
+		if content, err := os.ReadFile(scriptPath); err == nil {
+			slog.InfoContext(context.Background(), "Retrieved init script from file", "script_length", len(content), "path", scriptPath)
+			return string(content)
+		}
+		slog.DebugContext(context.Background(), "No init script file found", "path", scriptPath)
+	}
+	
+	// Fallback to original server method
+	initScript := server.GetInitScript()
+	slog.InfoContext(context.Background(), "Retrieved init script from server", "script_length", len(initScript), "has_script", initScript != "")
+	
+	return initScript
+}
+
 // CreateOrJoinSession will look in the SessionRegistry for the session ID. If
 // no session is found, a new one is created. If one is found, it is returned.
 func (c *ServerContext) CreateOrJoinSession(ctx context.Context, reg *SessionRegistry) error {
@@ -1079,6 +1116,8 @@ func (c *ServerContext) ExecCommand() (*ExecCommand, error) {
 	}
 
 	// Create the execCommand that will be sent to the child process.
+	initScript := c.GetInitScript()
+	slog.InfoContext(context.Background(), "Creating ExecCommand", "init_script_length", len(initScript))
 	return &ExecCommand{
 		Command:               command,
 		DestinationAddress:    c.DstAddr,
@@ -1096,6 +1135,7 @@ func (c *ServerContext) ExecCommand() (*ExecCommand, error) {
 		IsTestStub:            c.IsTestStub,
 		UaccMetadata:          *uaccMetadata,
 		SetSELinuxContext:     c.srv.GetSELinuxEnabled(),
+		InitScript:            initScript,
 	}, nil
 }
 

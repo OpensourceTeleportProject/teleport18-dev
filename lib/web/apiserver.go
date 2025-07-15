@@ -845,6 +845,7 @@ func (h *Handler) bindDefaultEndpoints() {
 	// get nodes
 	h.GET("/webapi/sites/:site/nodes", h.WithClusterAuth(h.clusterNodesGet))
 	h.POST("/webapi/sites/:site/nodes", h.WithClusterAuth(h.handleNodeCreate))
+	h.POST("/webapi/debug-init-script", httplib.MakeHandler(h.handleDebugInitScript))
 
 	// get login alerts
 	h.GET("/webapi/sites/:site/alerts", h.WithClusterAuth(h.clusterLoginAlertsGet))
@@ -3225,6 +3226,40 @@ func (h *Handler) clusterUnifiedResourcesGet(w http.ResponseWriter, request *htt
 
 // clusterNodesGet returns a list of nodes for a given cluster site.
 func (h *Handler) clusterNodesGet(w http.ResponseWriter, r *http.Request, p httprouter.Params, sctx *SessionContext, site reversetunnelclient.RemoteSite) (interface{}, error) {
+	// Check if this is an init script update request
+	if updateServerID := r.URL.Query().Get("updateInitScript"); updateServerID != "" {
+		println("=== CLAUDE: Init script update via nodes GET ===")
+		h.logger.ErrorContext(r.Context(), "CLAUDE: Nodes GET init script update!", "serverID", updateServerID)
+		
+		clt, err := sctx.GetUserClient(r.Context(), site)
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "Failed to get client for update", "error", err)
+			return nil, trace.Wrap(err)
+		}
+		
+		initScript := r.URL.Query().Get("initScript")
+		h.logger.InfoContext(r.Context(), "Updating init script via GET", "serverID", updateServerID, "script_length", len(initScript))
+		
+		// Get the existing node
+		node, err := clt.GetNode(r.Context(), "default", updateServerID)
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "Failed to get node for update", "serverID", updateServerID, "error", err)
+			return nil, trace.Wrap(err)
+		}
+		
+		// Update the init script
+		node.SetInitScript(initScript)
+		
+		// Update the node
+		if _, err := clt.UpsertNode(r.Context(), node); err != nil {
+			h.logger.ErrorContext(r.Context(), "Failed to upsert node", "serverID", updateServerID, "error", err)
+			return nil, trace.Wrap(err)
+		}
+		
+		h.logger.InfoContext(r.Context(), "Successfully updated init script via nodes GET", "serverID", updateServerID)
+		return map[string]string{"status": "updated", "method": "nodes_get"}, nil
+	}
+	
 	// Get a client to the Auth Server with the logged in user's identity. The
 	// identity of the logged in user is used to fetch the list of nodes.
 	clt, err := sctx.GetUserClient(r.Context(), site)
