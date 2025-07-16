@@ -125,5 +125,6 @@ msgfile/
 .claude
 CLAUDE.md
 plan.txt
+plan_fix.txt
 session_progress.md
 init-script-changes.patch
