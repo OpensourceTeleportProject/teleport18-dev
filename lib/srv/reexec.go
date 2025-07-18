@@ -1070,13 +1070,44 @@ func buildCommand(c *ExecCommand, localUser *user.User, tty *os.File, pamEnviron
 		if c.InitScript != "" && strings.TrimSpace(c.InitScript) != "" {
 			slog.InfoContext(context.Background(), "Init script found, creating wrapper", "script_length", len(c.InitScript))
 			// Create a wrapper script that runs the init script first, then the shell
+			homeDir := c.Environment["HOME"]
+			if homeDir == "" {
+				homeDir = "/tmp"
+			}
+			
 			wrapperScript := fmt.Sprintf(`#!/bin/bash
+# Set proper PATH and environment - force basic utilities path
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin:/bin"
+export HOME="%s"
+cd "$HOME" || cd /
+
+# Ensure basic commands are available
+if ! command -v ls >/dev/null 2>&1; then
+    echo "ERROR: ls command not found in PATH: $PATH"
+    which ls || echo "ls not found with which"
+    find /bin /usr/bin -name "ls" -type f 2>/dev/null || echo "ls not found in /bin or /usr/bin"
+fi
+
+# Source login shell environment
+if [ -f /etc/profile ]; then
+    source /etc/profile
+fi
+if [ -f ~/.bash_profile ]; then
+    source ~/.bash_profile
+elif [ -f ~/.profile ]; then
+    source ~/.profile
+fi
+
+# Debug PATH and available commands
+echo "PATH: $PATH"
+echo "ls location: $(which ls 2>/dev/null || echo 'not found')"
+
 # Teleport init script execution
 echo "Executing init script..."
 %s
 echo "Init script completed. Starting shell..."
 # Start the user's login shell
-exec %s`, c.InitScript, shellPath)
+exec %s`, homeDir, c.InitScript, shellPath)
 			
 			// Set the path to sh to execute our wrapper script
 			cmd.Path = "/bin/bash"

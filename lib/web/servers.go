@@ -601,7 +601,42 @@ func (h *Handler) handleNodeUpdateWrapper(w http.ResponseWriter, r *http.Request
 		return nil, trace.Wrap(err)
 	}
 
-	// Update the init script
+	// Save init script to file (our new file-based approach)
+	scriptPath := fmt.Sprintf("/var/lib/teleport/init-scripts/%s.sh", req.ServerID)
+	
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll("/var/lib/teleport/init-scripts", 0755); err != nil {
+		h.logger.ErrorContext(r.Context(), "Failed to create init-scripts directory", "error", err)
+		return nil, trace.Wrap(err)
+	}
+	
+	// Process script to ensure proper formatting
+	script := req.InitScript
+	// Add shebang if missing
+	if !strings.HasPrefix(script, "#!/") {
+		script = "#!/bin/bash\n" + script
+	}
+	// Ensure shebang line ends with newline
+	if strings.HasPrefix(script, "#!/") && !strings.Contains(script[:20], "\n") {
+		// Find the end of shebang and insert newline
+		parts := strings.SplitN(script, " ", 2)
+		if len(parts) == 2 {
+			script = parts[0] + "\n" + parts[1]
+		}
+	}
+	// Ensure script ends with newline
+	if !strings.HasSuffix(script, "\n") {
+		script += "\n"
+	}
+	
+	// Write script to file
+	h.logger.InfoContext(r.Context(), "Writing init script to file", "path", scriptPath)
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		h.logger.ErrorContext(r.Context(), "Failed to write init script file", "path", scriptPath, "error", err)
+		return nil, trace.Wrap(err)
+	}
+
+	// Also update the node metadata (for compatibility)
 	h.logger.InfoContext(r.Context(), "Setting init script", "serverID", req.ServerID)
 	node.SetInitScript(req.InitScript)
 
@@ -612,8 +647,8 @@ func (h *Handler) handleNodeUpdateWrapper(w http.ResponseWriter, r *http.Request
 		return nil, trace.Wrap(err)
 	}
 
-	h.logger.InfoContext(r.Context(), "Successfully updated init script", "serverID", req.ServerID)
-	return map[string]string{"status": "updated"}, nil
+	h.logger.InfoContext(r.Context(), "Successfully updated init script", "serverID", req.ServerID, "path", scriptPath)
+	return map[string]string{"status": "updated", "path": scriptPath}, nil
 }
 
 type initScriptUpdateRequest struct {
